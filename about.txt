@@ -1,0 +1,42 @@
+1. Different class and model for students.
+2. Different class and model for their grades.
+3. Different class and model for their attendance.
+4. Different class and model for teachers.
+5. Teachers will post grades and attendance on the portal.
+
+Students will login and see their grades and attendance. They will also be able 
+to see their class schedule and any upcoming events, which will be posted by the 
+admin
+
+Attendance will have a table with days as columns and students as rows.
+Grades will have a table with subjects as columns and students as rows.
+For both cases relation will be formed by student email_id.
+
+
+# Fix signup schema for teacher and admin
+# introduce an course enrollment model, sche,a and router
+# new variables made course_instructore for teacher, stu_course instead of course in al 
+student related fields 
+
+Calling the enrollment table (yet to be created) in both model and schema but the logic is 
+no student that signs up is enrolled in any course. Enrollment is done by the students.
+
+Routers for different subjects will be created in which the student can go and enroll 
+in the course. Once the student is enrolled in the course, the student will be able to schedule
+their classes and the teacher will be able to post grades and attendance.
+also course will be something given by the teacher and the student to mark or see grade 
+attendance and the code will check whether the student is even enrolled or not if yes then proceed
+
+So far student, admin and teacher login,signup and all tasks are being performed
+
+Will be adding a courses table which will be handeled by the admin(s) mainly for the 
+purpose of registring courses and their details. Admin will be able to add, delete and edit courses
+it will also include a column called instructor which will be used to assign a teacher to a 
+course. All will be done by the admin.
+
+students will only be able to register to those courses
+
+So I will be adding an updates router for upcoming events such as quizzes and assignments
+And some sort of system that will allow students to submit their assignments and quizzes
+And also a sytem that can specify or limit teachers so that they can perform actions related
+to their respected courses
