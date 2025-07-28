@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.orm import declarative_base
 
 
-sqlite_file_name = "st15.db"
+sqlite_file_name = "student_portal.db"
 # sqlite_url = f
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 

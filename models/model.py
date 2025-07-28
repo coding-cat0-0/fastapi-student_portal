@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, DateTime
 from database.structure import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy import Date
+from datetime import datetime
 
 
 class Users(Base):
@@ -13,7 +14,8 @@ class Users(Base):
     instructor = Column(String, nullable=True)  # Optional for students
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)  # Password should be hashed in practice
-    
+    otp_code = Column(String, nullable=True)  # Optional field for OTP code
+    otp_created_at = Column(DateTime, nullable=True) 
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -36,6 +38,7 @@ class Attendance(Base):
     present = Column(Boolean, default=False)  # default to False if not specified    
     student = relationship("Student", back_populates="attendance_records",foreign_keys=[student_id])
     # last_name = Column(String, nullable=True)   
+
 class Admin(Base):
     __tablename__ = "admins"
     id = Column(Integer, primary_key=True, index=True)

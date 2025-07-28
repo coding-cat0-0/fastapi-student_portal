@@ -18,9 +18,18 @@ class LoginUser(BaseModel):
              else:
                     return p
                 
-                
+class ForgetEmail(BaseModel):  
+    email : str
+    @field_validator('email')
+    def email_must_be_valid(cls, v):    
+        if not re.search(r"\w+@(\w+\.)?\w+\.(edu)$",v, re.IGNORECASE):
+            raise ValueError("Invalid email format")
+        else:
+            return v    
+                 
 class ForgetPassword(BaseModel):
     email: str
+    otp: str
     password: str            
     @field_validator('email')
     def email_must_be_valid(cls, v):    
