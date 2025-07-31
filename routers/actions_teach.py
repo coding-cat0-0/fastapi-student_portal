@@ -6,21 +6,22 @@ from authentication.oauth2 import create_access_token, get_current_user
 from database.structure import get_db, engine
 from typing import List
 import datetime
+from websockets_router.login_websocket import active_connections
+import asyncio
 
 router = APIRouter(
     tags=["For Faculty"]
 )
 # ATTENDANCE:
-@router.post('/student/attendance/{teacher_id}/{student_id}')
-def student_attendance(teacher_id:int,student_id: int,
+
+@router.post('/student/attendance/{student_id}')
+async def student_attendance(student_id: int,
     teacher: teacher_schema.AttendanceInput,
     db: Session = Depends(get_db),
-    current_teacher: model.Teacher = Depends(get_current_user())
+    current_teacher: model.Users = Depends(get_current_user())
 ):
     # Logic to mark attendance for a student
-    if current_teacher.id != teacher_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
-                            detail="Wrong ID entered")
+
     db_course = db.query(model.Enrollment).filter(model.Enrollment.student_id == student_id,model.Enrollment.course == teacher.course).first()
     if not db_course:
          raise HTTPException(
@@ -32,19 +33,34 @@ def student_attendance(teacher_id:int,student_id: int,
     db.add(mark_attendance)
     db.commit()
     db.refresh(mark_attendance)
+    
+    #print("Active connections:", active_connections)
+    #print("Current teacher:", current_teacher.email)
+    if current_teacher.email in active_connections:
+        asyncio.create_task(
+            send_notification(
+                current_teacher.email,
+                "Attendance marked successfully"
+            )
+        )
+    
     return {"message": "Attendance marked successfully"}
 
+async   def send_notification(email:str, message:str):
+    #print(f"Sending notification to {email}: {message}")
+    if email in active_connections:
+        await active_connections[email].send_json({
+            "type": "event_created",
+            "message": message
+        }) 
+
 # GRADES:
-@router.post('/student/grades/{teacher_id}/{student_id}')
-def student_grades(teacher_id:int,student_id: int,st_course: str,
+@router.post('/student/grades/{student_id}')
+async def student_grades(student_id: int,st_course: str,
     teacher: teacher_schema.GradeInput,
     db: Session = Depends(get_db),
-    current_teacher: model.Teacher = Depends(get_current_user())
+    current_teacher: model.Users = Depends(get_current_user())
 ):
-    
-    if current_teacher.id != teacher_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
-                            detail="Wrong ID entered")
     
     # Logic to add grades for a student
     db_student = db.query(model.Enrollment).filter(model.Enrollment.student_id == student_id, model.Enrollment.course == st_course).first()
@@ -86,17 +102,31 @@ def student_grades(teacher_id:int,student_id: int,st_course: str,
     db.add(new_grade)
     db.commit()
     db.refresh(new_grade)
+    
+    if current_teacher.email in active_connections:
+        asyncio.create_task(
+            send_notification(
+                current_teacher.email,
+                "Grades uploaded successfully"
+            )
+        )
+    
     return {"message": "Grades added successfully"}
 
-@router.post('/student/tasks/{teacher_id}/{course_id}')
-def upload_tasks(teacher_id: int, course_id: int,
+async  def send_notification(email:str, message:str):
+    #print(f"Sending notification to {email}: {message}")
+    if email in active_connections:
+        await active_connections[email].send_json({
+            "type": "event_created",
+            "message": message
+        }) 
+
+@router.post('/student/tasks/{course_id}')
+async def upload_tasks(course_id: int,
     task: teacher_schema.UploadTask,
     db: Session = Depends(get_db),
-    current_teacher: model.Teacher = Depends(get_current_user())
+    current_teacher: model.Users = Depends(get_current_user())
 ):
-    if current_teacher.id != teacher_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
-                            detail="Wrong ID entered")
     
     db_course = db.query(model.Courses).filter(model.Courses.id == course_id).first()
     if not db_course:
@@ -116,4 +146,20 @@ def upload_tasks(teacher_id: int, course_id: int,
     db.commit()
     db.refresh(new_task)
     
+    if current_teacher.email in active_connections:
+        asyncio.create_task(
+            send_notification(
+                current_teacher.email,
+                "Task uploaded successfully"
+            )
+        )
+    
     return {"message": "Task uploaded successfully", "task": new_task}
+
+async   def send_notification(email:str, message:str):
+    #print(f"Sending notification to {email}: {message}")
+    if email in active_connections:
+        await active_connections[email].send_json({
+            "type": "event_created",
+            "message": message
+        }) 

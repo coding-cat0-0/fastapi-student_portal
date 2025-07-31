@@ -49,14 +49,10 @@ def get_current_user(required_role: Optional[str] = None):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
-        if role == "student":
-            user = db.query(model.Student).filter(model.Student.id == int(user_id)).first()
-        elif role == "teacher":
-            user = db.query(model.Teacher).filter(model.Teacher.id == int(user_id)).first()    
-        elif role == "admin":
-            user = db.query(model.Admin).filter(model.Admin.id == int(user_id)).first()
-        else:        
-            raise credentials_exception
+        user = db.query(model.Users).filter(model.Users.id == int(user_id)).first()
+
+        if not user or user.role != role:
+                raise credentials_exception
         if not user:
             raise credentials_exception
         return user

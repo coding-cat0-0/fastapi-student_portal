@@ -11,34 +11,26 @@ import smtplib
 import random
 from datetime import datetime, timedelta
 
+from websockets_router.login_websocket import active_connections
+import asyncio
+
+
+
 router = APIRouter(
     tags=["Authentication"]
 )
 
-
-
 @router.post('/user/login')
-def login( user: user_schema.LoginUser,
+async def login( user: user_schema.LoginUser,
     db: Session = Depends(get_db)):  
     db_user = None
     role = None
+    login_user = db.query(model.Users).filter(model.Users.email == user.email).first()
+    if login_user and Hash.verify_password(user.password, login_user.password):
+        db_user = login_user 
+        role = login_user.role
     
-    db_student = db.query(model.Student).filter(model.Student.email == user.email).first()
-    if db_student and Hash.verify_password(user.password, db_student.password):
-        db_user = db_student
-        role = "student"
-    
-    db_teacher = db.query(model.Teacher).filter(model.Teacher.email == user.email).first()
-    if db_teacher and Hash.verify_password(user.password, db_teacher.password):
-        db_user = db_teacher
-        role = "teacher"    
-        
-    db_admin = db.query(model.Admin).filter(model.Admin.admin_email == user.email).first()
-    if db_admin and Hash.verify_password(user.password, db_admin.admin_password):
-        db_user = db_admin
-        role = "admin" 
-        
-    if db_user is None:
+    if login_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -46,11 +38,17 @@ def login( user: user_schema.LoginUser,
         )       
     
     access_token = create_access_token(data={"role":role,"sub": str(db_user.id)})
+    target_email = user.email
+    connection = active_connections.get(target_email)
+    if connection:
+            print("Active WebSocket connections:", active_connections)
+            print("Target email:", target_email)
+            await connection.send_text(f"{role.capitalize()} with email {target_email} logged in successfully!")  
+    else:
+        print(f"No websocket with email {target_email} logged in..")
+        
     return {"access_token": access_token, "token_type": "bearer", "role": role}
 
-
-
-# 
 
 def send_otp(to_email: str, otp: str):
     sender_email = "test@example.com"
@@ -80,50 +78,35 @@ def generate_otp(user: user_schema.ForgetEmail, db: Session = Depends(get_db)):
     return {"message": "OTP sent to your email"}    
 
 @router.post('/user/forget-password/')
-def forget_password(forget: user_schema.ForgetPassword, db: Session = Depends(get_db)):
-
+async def forget_password(forget: user_schema.ForgetPassword, db: Session = Depends(get_db)):
 
     db_user = db.query(model.Users).filter(model.Users.email == forget.email, model.Users.otp_code == forget.otp).first()
+    if not db_user:
+     raise HTTPException(status_code=404, detail="Invalid OTP or email")
+
     if datetime.utcnow() > db_user.otp_created_at + timedelta(minutes=1):
         db_user.otp_code = None
         db_user.otp_created_at = None
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP expired, please request a new one"
-        )   
-        
+            detail="OTP expired, please request a new one")   
+     
     if db_user:
+
         db_user.password = Hash.bcrypt(forget.password)
         db_user.otp_code = None
         db_user.otp_created_at = None
         db.commit()   
-        
-         
-        db_student = db.query(model.Student).filter(model.Student.email == forget.email).first()
-        if db_student:
-            db_student.password = Hash.bcrypt(forget.password)
-            db.commit()
-            return {"message": "Password updated successfully for student"}
-    
-
-        db_teacher = db.query(model.Teacher).filter(model.Teacher.email == forget.email).first()
-        if db_teacher:
-            db_teacher.password = Hash.bcrypt(forget.password)
-            db.commit()
-            return {"message": "Password updated successfully for teacher"}
-
-        db_admin = db.query(model.Admin).filter(model.Admin.admin_email == forget.email).first()
-        if db_admin :
-           db_admin.admin_password = Hash.bcrypt(forget.password)
-           db.commit()
-           return {"message": "Password updated successfully for admin"}
-
-       
+               
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )     
+
+        
+    return {"message": "Password reset successful"}    
+        
 
 

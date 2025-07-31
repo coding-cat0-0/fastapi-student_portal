@@ -5,6 +5,7 @@ from database.structure import get_db, engine, Base
 from sqlalchemy.orm import Session
 from routers import actions_teach, actions_stu, login
 from admin import admin_tasks
+from websockets_router import login_websocket
 
 app = FastAPI()
 
@@ -14,5 +15,6 @@ app.include_router(actions_teach.router)
 app.include_router(actions_stu.router)
 app.include_router(admin_tasks.router)
 app.include_router(login.router)
+app.include_router(login_websocket.router)
 
 

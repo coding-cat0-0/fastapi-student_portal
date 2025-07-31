@@ -16,40 +16,31 @@ class Users(Base):
     password = Column(String, nullable=False)  # Password should be hashed in practice
     otp_code = Column(String, nullable=True)  # Optional field for OTP code
     otp_created_at = Column(DateTime, nullable=True) 
-
-class Teacher(Base):
-    __tablename__ = "teachers"
     
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False) # nullable=False ensures that the name cannot be null
-    course_instructor = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)  
-    students = relationship("Student", back_populates="teacher")
+    # Relationships
+    attendance_records = relationship("Attendance", back_populates="student", foreign_keys='Attendance.student_id')
+    grades = relationship("Grade", back_populates="student", foreign_keys='Grade.student_id')
+    enrollments = relationship("Enrollment", back_populates="student", foreign_keys='Enrollment.student_id')
+    upload_tasks = relationship("UploadTasks", back_populates="student", foreign_keys='UploadTasks.student_id')
+
 
     
 class Attendance(Base):    
     __tablename__ = "attendance_records"
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     student_name = Column(String,nullable=False)  
     course = Column(String, nullable=False)  # or course_id if you have a courses table
     date = Column(Date, nullable=False)    # or use Date type if you want
     present = Column(Boolean, default=False)  # default to False if not specified    
-    student = relationship("Student", back_populates="attendance_records",foreign_keys=[student_id])
+    student = relationship("Users", back_populates="attendance_records", foreign_keys=[student_id])
     # last_name = Column(String, nullable=True)   
 
-class Admin(Base):
-    __tablename__ = "admins"
-    id = Column(Integer, primary_key=True, index=True)
-    admin_name = Column(String, nullable=False)
-    admin_email = Column(String, unique=True, nullable=False)
-    admin_password = Column(String, nullable=False)
     
 class Grade(Base):
     __tablename__ = "grades"
     id = Column(Integer, primary_key=True, index=True)    
-    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     student_name = Column(String,nullable=False) 
     course = Column(String, nullable=False) 
     quiz = Column(Float, nullable=False)
@@ -61,27 +52,17 @@ class Grade(Base):
     finalterm = Column(Float, nullable=False)
     final_total = Column(Float, nullable=False) 
     grade = Column(String, nullable=False)  
-    student = relationship("Student", back_populates="grades", foreign_keys=[student_id])
+    student = relationship("Users", back_populates="grades", foreign_keys=[student_id])
     
 class Enrollment(Base):        
     __tablename__ = "course_enrollments"
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     student_name = Column(String, nullable=False)
     course = Column(String, nullable=False)  
-    student = relationship("Student", back_populates="enrollments", foreign_keys=[student_id])
+    student = relationship("Users", back_populates="enrollments", foreign_keys=[student_id])
 
-class Student(Base):    
-    __tablename__ = "students"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True,nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
-    teacher_id = Column(Integer, ForeignKey("teachers.id"))
-    teacher = relationship("Teacher", back_populates="students")
-    attendance_records = relationship("Attendance", back_populates="student",foreign_keys=[Attendance.student_id])
-    grades = relationship("Grade", back_populates="student",foreign_keys=[Grade.student_id])    
-    enrollments = relationship("Enrollment", back_populates="student", foreign_keys=[Enrollment.student_id])
+
 
 
 class Events(Base):
@@ -115,7 +96,7 @@ class UploadTasks(Base):
     __tablename__ = "upload_tasks"
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     upload_date = Column(Date, nullable=False)
     task = relationship("Tasks", backref="upload_tasks")
-    student = relationship("Student", backref="upload_tasks")    
+    student = relationship("Users", back_populates ="upload_tasks")    

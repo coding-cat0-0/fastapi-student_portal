@@ -6,18 +6,23 @@ from authentication.oauth2 import create_access_token, get_current_user
 from database.structure import get_db, engine
 from typing import List
 from hasher.hashing import Hash
+from websockets_router.login_websocket import active_connections
+import asyncio
 
 router = APIRouter(
     tags=["For Admin"]
 )
 
 @router.post('/users')
-def create_users(
-    user: admin_schema.CreateUsers,
+async def create_users(
+    user: admin_schema.CreateUsers,    
     db: Session = Depends(get_db),
-    current_admin: model.Admin = Depends(get_current_user())):
+    current_admin: model.Users = Depends(get_current_user())):
     db_user = None
     role = None
+    
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action")
     
     existing = db.query(model.Users).filter(model.Users.email == user.email.lower()).first()
     if  existing:
@@ -30,57 +35,40 @@ def create_users(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid role specified"
         )
-    if user.role == "student":    
-      db_student = db.query(model.Student).filter(model.Student.email == user.email.lower()).first()
-      if not db_student:
-    # Student does not exist, so create a new one
-        new_student = model.Student(
-        name=user.name,
-        email=user.email.lower(),
-        password=Hash.bcrypt(user.password))
-        db.add(new_student)
-        db.commit()
-        db.refresh(new_student)
 
-    elif user.role == "teacher":
-        print(user)
-        db_teacher = db.query(model.Teacher).filter(model.Teacher.email == user.email.lower()).first()
-        if not db_teacher:
-            new_teacher = model.Teacher(
-            name=user.name,
-            course_instructor=user.instructor,
-            email=user.email.lower(),
-            password=Hash.bcrypt(user.password)
-            )
-            db.add(new_teacher)
-            db.commit()       
-            db.refresh(new_teacher)  
-         
-    elif user.role == "admin":       
-        db_admin = db.query(model.Admin).filter(model.Admin.admin_email == user.email).first()
-        if not db_admin:        
-          new_admin = model.Admin(admin_name=user.name,admin_email=user.email.lower(), 
-          admin_password=Hash.bcrypt(user.password))
-          db.add(new_admin)
-          db.commit()
-          db.refresh(new_admin)   
-        
     new_user = model.Users(name = user.name, role=user.role, email=user.email,
     password=Hash.bcrypt(user.password))
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    if current_admin.email in active_connections:
+        asyncio.create_task(
+            send_notification(
+            current_admin.email,
+            f"New user with role {new_user.role} created successfully"
+        ))
+
     return {"Message" : "User created succesfully",
             "User Information" : new_user}
-    
+
+async   def send_notification(email:str, message:str):
+    if email in active_connections:
+        await active_connections[email].send_json({
+            "type": "event_created",
+            "message": message
+        }) 
     
 @router.post('/events')
-def create_event(
+async def create_event(
     event: admin_schema.EventInput,
     db: Session = Depends(get_db),
-    current_admin: model.Admin = Depends(get_current_user())
+    current_admin: model.Users = Depends(get_current_user())
 ):
     # Logic to create an event
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action")
+    
     new_event = model.Events(
         event_name=event.name,
         event_date=event.event_date,
@@ -89,21 +77,55 @@ def create_event(
     db.add(new_event)
     db.commit()
     db.refresh(new_event)
+    
+    if current_admin.email in active_connections:
+         asyncio.create_task(
+            send_notification(
+            current_admin.email,
+            f"New event created successfully"
+        ))
+
+    
     return {"message": "Event created successfully"}
 
+async  def send_notification(email:str, message:str):
+    if email in active_connections:
+        await active_connections[email].send_json({
+            "type": "event_created",
+            "message": message
+        }) 
+
 @router.post('/courses')
-def create_course(
+async def create_course(
     course: admin_schema.CreateCourses,
     db: Session = Depends(get_db),
-    current_admin: model.Admin = Depends(get_current_user())
+    current_admin: model.Users = Depends(get_current_user())
 ):
+  
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action")
+    
     new_course = model.Courses(course_name = course.course_name, instructor=course.instructor,
     credit_hrs=course.credit_hrs, fee=course.fee)
     db.add(new_course)
     db.commit()
     db.refresh(new_course)
-    return {"message": "Course created successfully", "course": new_course}
+    
+    if current_admin.email in active_connections:
+  
+         asyncio.create_task(
+            send_notification(
+            current_admin.email,
+            f"New course created successfully"
+        ))
+    return {"message": "Course created successfully"}
 
+async  def send_notification(email:str, message:str):
+    if email in active_connections:
+        await active_connections[email].send_json({
+            "type": "event_created",
+            "message": message
+        }) 
 
 # For admin to see student attendance
 @router.get('/admin/student/attendance/{student_id}')
@@ -111,9 +133,13 @@ def view_student_attendance(
     student_id: int,
     stu_course: str,
     db: Session = Depends(get_db),
-    current_admin: model.Admin = Depends(get_current_user())
-):
-    db_student = db.query(model.Student).filter(model.Student.id == student_id).first()
+    current_admin: model.Users = Depends(get_current_user())
+):  
+    
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action") 
+    
+    db_student = db.query(model.Users).filter(model.Users.id == student_id).first()
     if not db_student:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -143,8 +169,11 @@ def view_student_attendance(
 @router.get('/admin/student/grades/{student_id}')    
 def view_student_grades(student_id: int, 
 stu_course: str, db: Session = Depends(get_db),
-current_admin: model.Admin = Depends(get_current_user)):
+current_admin: model.Users = Depends(get_current_user)):
     
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action")
+   
     db_student = db.query(model.Student).filter(model.Student.id == student_id).first()
     if not db_student:
         raise HTTPException(
@@ -173,7 +202,11 @@ current_admin: model.Admin = Depends(get_current_user)):
 
 
 @router.get('/admin/users')
-def view_users(db: Session = Depends(get_db)):
+def view_users(db: Session = Depends(get_db), current_admin: model.Users = Depends(get_current_user())):
+    
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action")
+    
     users = db.query(model.Users).all()
     if not users:
         raise HTTPException(
@@ -183,28 +216,16 @@ def view_users(db: Session = Depends(get_db)):
     return users     
 @router.delete('/admin/users/{username}')
 def delete_user(username: str, db : Session = Depends(get_db),
-        current_admin: model.Admin = Depends(get_current_user())):
+        current_admin: model.Users = Depends(get_current_user())):
+    
+    if current_admin.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can perform this action")
     
     db_user = db.query(model.Users).filter(model.Users.email == username).first()
-    if  db_user:
-        db.delete(db_user)
-        db.commit()
-    db_student = db.query(model.Student).filter(model.Student.email == username).first()    
-    if  db_student:
-        db.delete(db_student)    
-        db.commit()
-    
-    db_teacher = db.query(model.Teacher).filter(model.Teacher.email == username).first()
-    if  db_teacher:
-        db.delete(db_teacher)
-        db.commit()
-    
-    db_admin = db.query(model.Admin).filter(model.Admin.admin_email == username).first()
-    if db_admin:            
-        db.delete(db_admin)
-        db.commit()
-        
-    if not any([db_user, db_student, db_teacher, db_admin]):
+    if not db_user:
         raise HTTPException( status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
- 
+    
+    db.delete(db_user)
+    db.commit()
+    #if not any([db_user, db_student, db_teacher, db_admin]):
     return {"message": "User deleted successfully"}

@@ -16,9 +16,12 @@ router = APIRouter(
 @router.get('/student/attendance/{student_id}/{st_course}')
 def view_attendance(student_id: int,st_course:str,
     db: Session = Depends(get_db),
-    current_student: model.Student = Depends(get_current_user())
+    current_student: model.Users = Depends(get_current_user())
 ):
     # To check if the student is the one requesting their grades
+    if current_student.role != "student":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: not a student")
+    
     if current_student.id != student_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
                             detail="Incorrect student ID")
@@ -46,9 +49,12 @@ def view_attendance(student_id: int,st_course:str,
 @router.get('/student/grades/{student_id}')
 def view_grades(student_id: int,st_course: str,
     db: Session = Depends(get_db),
-    current_student: model.Student = Depends(get_current_user())
+    current_student: model.Users = Depends(get_current_user())
 ):
     # To check if the student is the one requesting their grades
+    if current_student.role != "student":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: not a student")
+
     if current_student.id != student_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
                             detail="Incorrect student ID")
@@ -74,13 +80,18 @@ def view_grades(student_id: int,st_course: str,
 
 @router.get('/student/tasks/{student_id}')    
 def see_tasks(student_id:int, db:Session=Depends(get_db),
-    current_student: model.Student = Depends(get_current_user())):
+    current_student: model.Users = Depends(get_current_user())):
     
+    if current_student.role != "student":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: not a student")
+
     if current_student.id != student_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
         detail="Incorrect student ID")
-     
-    get_tasks = db.query(model.Tasks).all()
+    courses = db.query(model.Enrollment.course).filter(model.Enrollment.student_id == student_id).subquery() 
+    # Creates a subquery that gets all courses in which a specific student is enrolled.
+    get_tasks = db.query(model.Tasks).filter(model.Tasks.course_name.in_(courses.c.course)) # Fetches data from the course column 
+    # of the subquery cources
     if not get_tasks:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -91,18 +102,16 @@ def see_tasks(student_id:int, db:Session=Depends(get_db),
 @router.post('/student/upload/tasks/{student_id}/{task_id}')
 def upload_task(student_id: int,task_id:int,
     db: Session = Depends(get_db),
-    current_student: model.Student = Depends(get_current_user())):
+    current_student: model.Users = Depends(get_current_user())):
     
+    if current_student.role != "student":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: not a student")
+
     if current_student.id != student_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
         detail="Incorrect student ID")
     
-    db_check_task = db.query(model.Tasks).filter(model.Tasks.id == task_id).first()
-    if not db_check_task:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
+
     task = db.query(model.Tasks).filter(model.Tasks.id == task_id).first()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -138,8 +147,11 @@ def see_your_course(st_id:int, db: Session = Depends(get_db)):
 # Enroll in a course:
 @router.post('/courses/{course_name}/{st_name}')
 def create_course(course_name: str,st_name :str, db: Session = Depends(get_db),
-        current_student: model.Student = Depends(get_current_user())):
-    
+        current_student: model.Users = Depends(get_current_user())):
+
+    if current_student.role != "student":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: not a student")
+
     deb_course = db.query(model.Courses).filter(model.Courses.course_name == course_name).first()
     if not deb_course:
             raise HTTPException(
