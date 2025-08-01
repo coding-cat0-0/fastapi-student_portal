@@ -8,6 +8,9 @@ from typing import List
 import datetime
 from websockets_router.login_websocket import active_connections
 import asyncio
+from websockets_router.core_socketio import socket_manager
+from websockets_router.celary import stu_notifications
+
 
 router = APIRouter(
     tags=["For Faculty"]
@@ -43,6 +46,11 @@ async def student_attendance(student_id: int,
                 "Attendance marked successfully"
             )
         )
+    student = db.query(model.Users).filter(model.Users.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")    
+    
+    stu_notifications.delay(student.email, "Your attendance has been posted")
     
     return {"message": "Attendance marked successfully"}
 
@@ -53,6 +61,7 @@ async   def send_notification(email:str, message:str):
             "type": "event_created",
             "message": message
         }) 
+
 
 # GRADES:
 @router.post('/student/grades/{student_id}')
