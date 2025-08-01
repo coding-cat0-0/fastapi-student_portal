@@ -14,3 +14,10 @@ venv/
 # Editor settings
 .vscode/
 .idea/
+
+manage.py
+ad.py
+check.py
+# Ignore database files
+*.db
+*.sqlite3
