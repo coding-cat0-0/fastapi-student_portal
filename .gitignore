@@ -1,26 +1,27 @@
-# Ignore environment variable files
-.env
-.env.*
-
-# Bytecode and cache
-__pycache__/
-*.pyc
-*.pyo
-
 # Virtual environments
 venv/
 .env/
+.env.*
 
 # Editor settings
 .vscode/
 .idea/
 
-manage.py
-ad.py
-check.py
 # Ignore database files
 *.db
 *.sqlite3
 
-alembic/versions/
+# Alembic
 alembic.ini
+alembic/versions/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore specific scripts (if needed)
+manage.py
+ad.py
+check.py
+
