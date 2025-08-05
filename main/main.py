@@ -7,14 +7,14 @@ from routers import actions_teach, actions_stu, login
 from admin import admin_tasks
 from websockets_router import login_websocket
 from fastapi_socketio import SocketManager
-from websockets_router import core_socketio
-from websockets_router.core_socketio import socket_manager
-
+from websockets_router import redis
+from websockets_router.redis import listen_notifications
+import threading
 app = FastAPI()
-socket_manager = SocketManager(app=app)
-core_socketio.socket_manager = socket_manager
-core_socketio.handle_socket_manager()
+
 # Base.metadata.create_all(engine)
+
+threading.Thread(target= listen_notifications, daemon=True).start()
 
 app.include_router(actions_teach.router)
 app.include_router(actions_stu.router)

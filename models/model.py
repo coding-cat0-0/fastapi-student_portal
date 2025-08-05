@@ -53,6 +53,15 @@ class Grade(Base):
     final_total = Column(Float, nullable=False) 
     grade = Column(String, nullable=False)  
     student = relationship("Users", back_populates="grades", foreign_keys=[student_id])
+
+class Courses(Base):        
+    __tablename__ = "courses"
+    id = Column(Integer, primary_key=True, index=True)
+    course_name = Column(String, unique=True, nullable=False)
+    instructor = Column(String, nullable=False) 
+    credit_hrs = Column(Integer, nullable=False)
+    fee = Column(Float, nullable=False)
+    enrollments = relationship("Enrollment", back_populates="course_rel")
     
 class Enrollment(Base):        
     __tablename__ = "course_enrollments"
@@ -60,7 +69,9 @@ class Enrollment(Base):
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     student_name = Column(String, nullable=False)
     course = Column(String, nullable=False)  
+    course_id = Column(Integer, ForeignKey("courses.id"))
     student = relationship("Users", back_populates="enrollments", foreign_keys=[student_id])
+    course_rel = relationship("Courses", back_populates="enrollments", foreign_keys=[course_id])
 
 
 
@@ -73,14 +84,7 @@ class Events(Base):
         event_location = Column(String, nullable=False)
         
         
-class Courses(Base):        
-    __tablename__ = "courses"
-    id = Column(Integer, primary_key=True, index=True)
-    course_name = Column(String, unique=True, nullable=False)
-    instructor = Column(String, nullable=False) 
-    credit_hrs = Column(Integer, nullable=False)
-    fee = Column(Float, nullable=False)
-    
+
 
 class Tasks(Base):
     __tablename__ = "tasks"
@@ -100,3 +104,10 @@ class UploadTasks(Base):
     upload_date = Column(Date, nullable=False)
     task = relationship("Tasks", backref="upload_tasks")
     student = relationship("Users", back_populates ="upload_tasks")    
+    
+class Notifications(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    delivered = Column(Boolean, default=False)

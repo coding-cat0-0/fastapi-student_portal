@@ -49,12 +49,6 @@ class SignupTeachers(Teachers):
              else:
                     return p                         
         
-class DisplayTeachers(BaseModel): 
-    name: str
-    course: str
-    email: str       
-    class Config():
-        orm_mode = True
 
 class AttendanceInput(BaseModel):
     student_name: str

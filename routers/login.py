@@ -20,32 +20,35 @@ router = APIRouter(
     tags=["Authentication"]
 )
 
+from websockets_router.login_websocket import active_connections
+
 @router.post('/user/login')
-async def login( user: user_schema.LoginUser,
-    db: Session = Depends(get_db)):  
+async def login(user: user_schema.LoginUser, db: Session = Depends(get_db)):  
     db_user = None
     role = None
     login_user = db.query(model.Users).filter(model.Users.email == user.email).first()
+    
     if login_user and Hash.verify_password(user.password, login_user.password):
         db_user = login_user 
         role = login_user.role
-    
-    if login_user is None:
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )       
-    
-    access_token = create_access_token(data={"role":role,"sub": str(db_user.id)})
-    target_email = user.email
-    connection = active_connections.get(target_email)
+
+    access_token = create_access_token(data={"role": role, "sub": str(db_user.id)})
+
+    # WebSocket message (optional — may now be redundant since listener handles it)
+    connection = active_connections.get(user.email)
     if connection:
-            print("Active WebSocket connections:", active_connections)
-            print("Target email:", target_email)
-            await connection.send_text(f"{role.capitalize()} with email {target_email} logged in successfully!")  
+        print("Active WebSocket connections:", active_connections)
+        print("Target email:", user.email)
+        await connection.send_text(f"{role.capitalize()} with email {user.email} logged in successfully!")  
     else:
-        print(f"No websocket with email {target_email} logged in..")
+        print(f"No websocket with email {user.email} logged in..")
+
         
     return {"access_token": access_token, "token_type": "bearer", "role": role}
 
@@ -84,7 +87,7 @@ async def forget_password(forget: user_schema.ForgetPassword, db: Session = Depe
     if not db_user:
      raise HTTPException(status_code=404, detail="Invalid OTP or email")
 
-    if datetime.utcnow() > db_user.otp_created_at + timedelta(minutes=1):
+    if datetime.utcnow() > db_user.otp_created_at + timedelta(minutes=2):
         db_user.otp_code = None
         db_user.otp_created_at = None
         db.commit()

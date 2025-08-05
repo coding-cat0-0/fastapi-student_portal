@@ -152,8 +152,8 @@ def create_course(course_name: str,st_name :str, db: Session = Depends(get_db),
     if current_student.role != "student":
       raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: not a student")
 
-    deb_course = db.query(model.Courses).filter(model.Courses.course_name == course_name).first()
-    if not deb_course:
+    db_course = db.query(model.Courses).filter(model.Courses.course_name == course_name).first()
+    if not db_course:
             raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
     
@@ -163,7 +163,8 @@ def create_course(course_name: str,st_name :str, db: Session = Depends(get_db),
     if existing_enrollment:     
         raise HTTPException(status_code=status.HTTP_302_FOUND, detail="You are already enrolled in this course")
     else:
-        new_enrollment = model.Enrollment(student_id=current_student.id, student_name=st_name,course=course_name)
+        new_enrollment = model.Enrollment(student_id=current_student.id, student_name=st_name,course=course_name,
+        course_id = db_course.id)
         db.add(new_enrollment)
         db.commit()
         db.refresh(new_enrollment)

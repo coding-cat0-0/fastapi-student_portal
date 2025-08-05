@@ -8,11 +8,13 @@ from typing import List
 from hasher.hashing import Hash
 from websockets_router.login_websocket import active_connections
 import asyncio
+import redis
+import json
 
 router = APIRouter(
     tags=["For Admin"]
 )
-
+# User Creation
 @router.post('/users')
 async def create_users(
     user: admin_schema.CreateUsers,    
@@ -58,16 +60,19 @@ async   def send_notification(email:str, message:str):
             "type": "event_created",
             "message": message
         }) 
-    
+
+# Event Creation    
 @router.post('/events')
 async def create_event(
     event: admin_schema.EventInput,
     db: Session = Depends(get_db),
     current_admin: model.Users = Depends(get_current_user())
 ):
+    email = None
     # Logic to create an event
     if current_admin.role != "admin":
         raise HTTPException(status_code=403, detail="Only admin can perform this action")
+    
     
     new_event = model.Events(
         event_name=event.name,
@@ -84,8 +89,17 @@ async def create_event(
             current_admin.email,
             f"New event created successfully"
         ))
-
+    users = db.query(model.Users).filter(model.Users.role != "admin").all()
+    email = [user.email for user in users]
+    r = redis.Redis(host='localhost', port=6379, db=0)
     
+    for st_email in email:
+     db.add(model.Notifications(email = st_email,
+     message= "A New event is taking place. Go check it out"))
+     db.commit()          
+     r.publish('notifications', json.dumps({"email" : st_email, 
+    "message" : "A New event is taking place. Go check it out"}))
+     
     return {"message": "Event created successfully"}
 
 async  def send_notification(email:str, message:str):
@@ -95,6 +109,7 @@ async  def send_notification(email:str, message:str):
             "message": message
         }) 
 
+# Course Creation
 @router.post('/courses')
 async def create_course(
     course: admin_schema.CreateCourses,
@@ -118,6 +133,18 @@ async def create_course(
             current_admin.email,
             f"New course created successfully"
         ))
+    users = db.query(model.Users).filter(model.Users.role == "student").all()
+    email = [user.email for user in users]
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    
+    for st_email in email:
+     db.add(model.Notifications(email = st_email,
+     message= "A New event is taking place. Go check it out"))
+     db.commit()          
+     r.publish('notifications', json.dumps({"email" : st_email, 
+    "message" : "A New course has been added. Go check it out"}))
+     
+    
     return {"message": "Course created successfully"}
 
 async  def send_notification(email:str, message:str):
@@ -200,7 +227,7 @@ current_admin: model.Users = Depends(get_current_user)):
         )
     return grade_records    
 
-
+# To see users
 @router.get('/admin/users')
 def view_users(db: Session = Depends(get_db), current_admin: model.Users = Depends(get_current_user())):
     
@@ -213,7 +240,9 @@ def view_users(db: Session = Depends(get_db), current_admin: model.Users = Depen
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No users found"
         )
-    return users     
+    return users
+
+# For deleting users     
 @router.delete('/admin/users/{username}')
 def delete_user(username: str, db : Session = Depends(get_db),
         current_admin: model.Users = Depends(get_current_user())):

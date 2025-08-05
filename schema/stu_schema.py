@@ -41,12 +41,7 @@ class SignupStudent(Student):
              else:
                     return p         
 
-class DisplayStudent(BaseModel):
-    name: str
-    email: str
-    class Config():
-        orm_mode = True
-              
+
         
         
 class Enrollment(BaseModel):
