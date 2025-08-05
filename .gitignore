@@ -21,3 +21,6 @@ check.py
 # Ignore database files
 *.db
 *.sqlite3
+
+alembic/versions/
+alembic.ini
